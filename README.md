@@ -1,2 +1,2 @@
-# PL-SQL
-Pl/SQL Labs
+# PL/SQL
+Practice exercices for learning PL/SQL.
