@@ -58,7 +58,7 @@ END f2_fna;
 
 BEGIN
  DBMS_OUTPUT.PUT_LINE('Salariul este '|| f2_fna);
-END;
+END;  
 /
 --BEGIN
  --DBMS_OUTPUT.PUT_LINE('Salariul este '|| f2_fna('King'));
@@ -67,6 +67,10 @@ END;
 
 SELECT f2_fna FROM DUAL;
 --SELECT f2_fna('King') FROM DUAL;
+
+VARIABLE nr NUMBER 
+EXECUTE :nr := f2_fna('Bell'); 
+PRINT nr;
 
 --Ex3 -> 1 dar cu procedura locala (nu intoarce dar poate avea parametri de tip OUT)
 -- varianta 1
@@ -188,5 +192,130 @@ END;
 VARIABLE v_sal NUMBER
 EXECUTE p4_fna ('Bell',:v_sal)
 PRINT v_sal
+
+
+--Ex5 -> Procedura stocata ce primeste codul unui angajat si intoarce prin acelasi parametru
+-- managerul acestuia
+
+VARIABLE ang_man NUMBER 
+BEGIN 
+ :ang_man:=200; 
+END; 
+/ 
+
+CREATE OR REPLACE PROCEDURE p5_fna  (nr IN OUT NUMBER) IS  
+BEGIN 
+ SELECT manager_id INTO nr 
+ FROM employees 
+ WHERE employee_id=nr; 
+END p5_fna; 
+/ 
+
+EXECUTE p5_fna (:ang_man) 
+PRINT ang_man
+
+--Ex6 -> Procedura locala cu 3 parametri -> result (OUT), comision(IN) default NULL, cod(IN) default null
+--Se returneaza in result numele angajatului cu comisionul respectiv daca este dat, altfel angajatul cu codul dat
+
+DECLARE 
+nume employees.last_name%TYPE; 
+PROCEDURE p6 (rezultat OUT employees.last_name%TYPE, 
+              comision IN  employees.commission_pct%TYPE:=NULL, --parametri cu valori default
+              cod      IN  employees.employee_id%TYPE:=NULL)  
+ IS 
+ BEGIN 
+ IF (comision IS NOT NULL) THEN 
+    SELECT last_name  
+    INTO rezultat 
+    FROM employees 
+    WHERE commission_pct= comision; 
+    DBMS_OUTPUT.PUT_LINE('numele salariatului care are  
+                comisionul '||comision||' este '||rezultat); 
+ ELSE  
+    SELECT last_name  
+    INTO rezultat 
+    FROM employees 
+    WHERE employee_id =cod; 
+    DBMS_OUTPUT.PUT_LINE('numele salariatului avand codul '|| 
+                          cod ||' este '||rezultat); 
+ END IF; 
+END p6; 
+ 
+BEGIN 
+  p6(nume,0.4); 
+  p6(nume,cod=>200); --Specificarea parametrilor cand apelam procedura
+END; 
+/
+
+--Ex7 -> Overload pe functii -> 2 functii locale cu acelasi nume 
+--prima returneaza suma salariilor pentru un departament dat
+--a doua returneaza suma salariilor pentru un departament si job dat
+
+DECLARE 
+  medie1 NUMBER(10,2); 
+  medie2 NUMBER(10,2);  
+  FUNCTION medie (v_dept employees.department_id%TYPE)  
+    RETURN NUMBER IS 
+    rezultat NUMBER(10,2); 
+  BEGIN 
+    SELECT AVG(salary)  
+    INTO   rezultat  
+    FROM   employees 
+    WHERE  department_id = v_dept; 
+    RETURN rezultat; 
+  END; 
+   
+  FUNCTION medie (v_dept employees.department_id%TYPE, 
+                  v_job employees.job_id %TYPE)  
+    RETURN NUMBER IS 
+    rezultat NUMBER(10,2); 
+  BEGIN 
+    SELECT AVG(salary)  
+    INTO   rezultat  
+    FROM   employees 
+    WHERE  department_id = v_dept AND job_id = v_job; 
+    RETURN rezultat; 
+  END; 
+ 
+BEGIN 
+  medie1:=medie(80); 
+  DBMS_OUTPUT.PUT_LINE('Media salariilor din departamentul 80'  
+      || ' este ' || medie1); 
+  medie2 := medie(80,'SA_MAN'); 
+  DBMS_OUTPUT.PUT_LINE('Media salariilor managerilor din' 
+      || ' departamentul 80 este ' || medie2); 
+END; 
+/
+
+--Ex 8 -> recursivitate -> factorial
+
+CREATE OR REPLACE FUNCTION factorial_fna(n NUMBER)  
+ RETURN INTEGER IS 
+ BEGIN 
+  IF (n=0) THEN RETURN 1; 
+  ELSE RETURN n*factorial_fna(n-1); 
+  END IF; 
+END factorial_fna; 
+/
+
+SELECT factorial_fna(7) FROM DUAL;
+
+--Ex 9 -> Selectarea angajatilor ce au salariul mai mare decat salariul mediu
+--Salariu mediu aflat printr-o functie stocata
+
+CREATE OR REPLACE FUNCTION medie_fna
+RETURN NUMBER  
+IS  
+rezultat NUMBER; 
+BEGIN 
+  SELECT AVG(salary) INTO   rezultat 
+  FROM   employees; 
+  RETURN rezultat; 
+END; 
+/ 
+SELECT last_name,salary 
+FROM   employees 
+WHERE  salary >= medie_fna;
+
 
 
