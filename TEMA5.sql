@@ -8,7 +8,7 @@ CREATE TABLE info_fna
     eroare VARCHAR2(100)
 );
 
---2
+--2 - functie
 CREATE OR REPLACE FUNCTION f2_fna
  (v_nume employees.last_name%TYPE)
 RETURN NUMBER 
@@ -53,6 +53,50 @@ END;
 /
 SELECT *
 FROM info_fna;
+
+--2 - procedura
+CREATE OR REPLACE PROCEDURE
+p4_fna(v_nume IN employees.last_name%TYPE) 
+ IS
+ salariu employees.salary%type DEFAULT NULL;
+ nr_ang NUMBER := 0;
+BEGIN
+
+ SELECT COUNT(*) INTO nr_ang
+ FROM EMPLOYEES
+ WHERE LAST_NAME = v_nume;
+
+ SELECT SALARY INTO salariu
+ FROM EMPLOYEES
+ WHERE LAST_NAME = v_nume;
+
+ INSERT INTO info_fna
+ VALUES(user, sysdate, 'p4_fna'||' ('||v_nume||')', 1, 'no_error');
+
+ EXCEPTION
+
+ WHEN NO_DATA_FOUND THEN
+ INSERT INTO info_fna
+ VALUES(user, sysdate, 'p4_fna'||' ('||v_nume||')', 0, 'Nu exista angajati cu numele dat');
+
+ WHEN TOO_MANY_ROWS THEN
+ INSERT INTO info_fna
+ VALUES (user, sysdate, 'p4_fna'||' ('||v_nume||')', nr_ang, 'Exista mai multi angajati cu numele dat');
+
+END p4_fna;
+/
+DECLARE
+ numar NUMBER;
+BEGIN
+ p4_fna('Bell');
+ p4_fna('Kimball');
+ p4_fna('King');
+END;
+/
+SELECT *
+FROM info_fna;
+
+
 
 --3
 CREATE OR REPLACE FUNCTION f3_fna
