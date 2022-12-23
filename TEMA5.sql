@@ -178,7 +178,7 @@ END;
 SELECT *
 FROM info_fna;
 
---5.a -- fara a se tine cont de istoricul joburilor
+--5
 CREATE OR REPLACE PROCEDURE ex5_fna
 IS
 nume_departament DEPARTMENTS.DEPARTMENT_NAME%TYPE;
@@ -198,37 +198,26 @@ BEGIN
         IF nr_ang_dep = 0 THEN
         DBMS_OUTPUT.PUT_LINE('In departamentul ' || department.DEPARTMENT_NAME || ' nu lucreaza nimeni');
         ELSE
-            SELECT *
+            SELECT "Numar de angajati", "Ziua saptamanii"
             INTO nr_ang_zi, ziua
             FROM
-                ((SELECT COUNT(EMPLOYEE_ID), NVL(TO_CHAR(HIRE_DATE, 'DY'), 0) "Ziua saptamanii"
+                ((SELECT COUNT(EMPLOYEE_ID) "Numar de angajati", NVL(TO_CHAR(HIRE_DATE, 'DY'), 0) "Ziua saptamanii"
                         --INTO nr_ang_zi, ziua
                         FROM EMPLOYEES
-                        WHERE DEPARTMENT_ID = 80
+                        WHERE DEPARTMENT_ID = department.DEPARTMENT_ID
                         GROUP BY  NVL(TO_CHAR(HIRE_DATE, 'DY'), 0)
                         HAVING COUNT(EMPLOYEE_ID) = (SELECT MAX(COUNT(EMPLOYEE_ID))
                                                     FROM EMPLOYEES
-                                                    WHERE DEPARTMENT_ID = 80
+                                                    WHERE DEPARTMENT_ID = department.DEPARTMENT_ID
                                                     GROUP BY  NVL(TO_CHAR(HIRE_DATE, 'DY'), 0)
-                                                    ))
-                UNION
-                (SELECT COUNT(EMPLOYEE_ID), NVL(TO_CHAR(START_DATE, 'DY'), 0) "Ziua saptamanii"
-                        --INTO nr_ang_zi, ziua
-                        FROM JOB_HISTORY
-                        WHERE DEPARTMENT_ID = 80
-                        GROUP BY  NVL(TO_CHAR(START_DATE, 'DY'), 0)
-                        HAVING COUNT(EMPLOYEE_ID) = (SELECT MAX(COUNT(EMPLOYEE_ID))
-                                                    FROM JOB_HISTORY
-                                                    WHERE DEPARTMENT_ID = 80
-                                                    GROUP BY  NVL(TO_CHAR(START_DATE, 'DY'), 0)
                                                     ))
                 )
             WHERE ROWNUM<2;
             DBMS_OUTPUT.PUT_LINE('In departamentul ' || department.DEPARTMENT_NAME || ', ziua cu cele mai multe angajari(' || nr_ang_zi || ') a fost ' || ziua);
-            FOR employee IN (SELECT FIRST_NAME || ' ' || LAST_NAME "Nume Complet", ROUND(SYSDATE-HIRE_DATE, 0) "Vechime in zile", SALARY
+            FOR employee IN (SELECT FIRST_NAME || ' ' || LAST_NAME "Nume Complet", ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE),0) "Vechime in luni", SALARY
                             FROM EMPLOYEES
                             WHERE DEPARTMENT_ID = department.DEPARTMENT_ID AND TO_CHAR(HIRE_DATE, 'DY') = ziua) LOOP
-                DBMS_OUTPUT.PUT_LINE(employee."Nume Complet" || ' ' || employee."Vechime in zile" || ' zile ' || employee.SALARY);
+                DBMS_OUTPUT.PUT_LINE(employee."Nume Complet" || ' cu vechimea de: ' || employee."Vechime in luni" || ' luni si salariul: ' || employee.SALARY);
             END LOOP;
         END IF;
     END LOOP;
@@ -236,10 +225,76 @@ BEGIN
 
 END;
 /
-
 BEGIN
  ex5_fna;
 END;
 /
 
+--6
+CREATE OR REPLACE PROCEDURE ex6_fna
+IS
+index_ang NUMBER := 1;
+numar_ang NUMBER := 0;
+nume_departament DEPARTMENTS.DEPARTMENT_NAME%TYPE;
+ziua VARCHAR2(10);
+nr_ang_dep NUMBER;
+nr_ang_zi NUMBER;
+CURSOR C(p1 DEPARTMENTS.DEPARTMENT_ID%TYPE, p2 VARCHAR2, p3 NUMBER) IS
+(SELECT FIRST_NAME || ' ' || LAST_NAME "Nume Complet", ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE),0) "Vechime in luni", SALARY
+FROM EMPLOYEES
+WHERE DEPARTMENT_ID = p1 AND TO_CHAR(HIRE_DATE, 'DY') = p2 and ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE),0) = p3 );
+BEGIN
+    FOR department IN (SELECT D.DEPARTMENT_NAME, D.DEPARTMENT_ID, COUNT(E.EMPLOYEE_ID) "Number of employees"
+                       FROM DEPARTMENTS D LEFT JOIN EMPLOYEES E ON (D.DEPARTMENT_ID = E.DEPARTMENT_ID)
+                       GROUP BY D.DEPARTMENT_NAME, D.DEPARTMENT_ID) LOOP
+        
+        SELECT COUNT(DISTINCT E.employee_id)
+        INTO nr_ang_dep
+        FROM DEPARTMENTS D LEFT JOIN EMPLOYEES E ON(D.DEPARTMENT_ID = E.DEPARTMENT_ID)
+        WHERE D.DEPARTMENT_ID = department.DEPARTMENT_ID;
+
+        IF nr_ang_dep = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('In departamentul ' || department.DEPARTMENT_NAME || ' nu lucreaza nimeni');
+        ELSE
+            SELECT "Numar de angajati", "Ziua saptamanii"
+            INTO nr_ang_zi, ziua
+            FROM
+                ((SELECT COUNT(EMPLOYEE_ID) "Numar de angajati", NVL(TO_CHAR(HIRE_DATE, 'DY'), 0) "Ziua saptamanii"
+                        --INTO nr_ang_zi, ziua
+                        FROM EMPLOYEES
+                        WHERE DEPARTMENT_ID = department.DEPARTMENT_ID
+                        GROUP BY  NVL(TO_CHAR(HIRE_DATE, 'DY'), 0)
+                        HAVING COUNT(EMPLOYEE_ID) = (SELECT MAX(COUNT(EMPLOYEE_ID))
+                                                    FROM EMPLOYEES
+                                                    WHERE DEPARTMENT_ID = department.DEPARTMENT_ID
+                                                    GROUP BY  NVL(TO_CHAR(HIRE_DATE, 'DY'), 0)
+                                                    ))
+                )
+            WHERE ROWNUM<2;
+            index_ang  := 1;
+            numar_ang  := 0;
+            DBMS_OUTPUT.PUT_LINE('In departamentul ' || department.DEPARTMENT_NAME || ', ziua cu cele mai multe angajari(' || nr_ang_zi || ') a fost ' || ziua);
+            FOR vechime IN (SELECT DISTINCT ROUND(MONTHS_BETWEEN(SYSDATE, HIRE_DATE),0) "Vechime in luni"
+                            FROM EMPLOYEES
+                            WHERE DEPARTMENT_ID = department.DEPARTMENT_ID AND TO_CHAR(HIRE_DATE, 'DY') = ziua
+                            ORDER BY "Vechime in luni" DESC) LOOP
+                DBMS_OUTPUT.PUT(index_ang || '. ');
+                FOR employee in C(department.DEPARTMENT_ID, ziua, vechime."Vechime in luni") LOOP
+                    numar_ang := numar_ang + 1;
+                    DBMS_OUTPUT.PUT(employee."Nume Complet" || ' cu vechimea de: ' || employee."Vechime in luni" || ' luni si salariul: ' || employee.SALARY ||', ');
+                END LOOP;
+                index_ang := index_ang + 1;
+                DBMS_OUTPUT.PUT_LINE('');
+                EXIT WHEN numar_ang = nr_ang_zi;
+            END LOOP;
+        END IF;
+    END LOOP;
+
+
+END;
+/
+BEGIN
+ ex6_fna;
+END;
+/
 
